@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\PengajuanMagang;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Carbon\Carbon; // Pastikan Carbon diimpor jika belum
 
 class AdminPengajuanController extends Controller
 {
@@ -19,7 +20,7 @@ class AdminPengajuanController extends Controller
         ]);
     }
 
-    // Tambahan: API untuk daftar pengajuan (bisa kamu kembangkan nanti)
+    // API untuk daftar pengajuan (admin)
     public function index(Request $request)
     {
         $query = PengajuanMagang::with('user');
@@ -43,18 +44,18 @@ class AdminPengajuanController extends Controller
                 'tanggal_selesai' => $item->tanggal_selesai,
                 'status' => $item->status,
                 'catatan' => $item->catatan,
-                'nama_pengaju' => $item->user->name,      // dari tabel users
-                'email_pengaju' => $item->user->email,    // dari tabel users
+                'nama_pengaju' => $item->user->name,
+                'email_pengaju' => $item->user->email,
                 'pdf_pengajuan' => $item->dokumen
-                    ? url(Storage::url($item->dokumen)) // ini akan menjadi: http://localhost:8000/storage/dokumen_pengajuan/xxx.pdf
+                    ? url(Storage::url($item->dokumen))
                     : null,
-
+                // ⭐ PERBAIKAN: Tambahkan tanggal_diterima di sini
+                'tanggal_diterima' => $item->tanggal_diterima ? Carbon::parse($item->tanggal_diterima)->format('Y-m-d H:i:s') : null,
             ];
         });
 
         return response()->json($pengajuan);
     }
-
 
     public function bulkUpdateStatus(Request $request)
     {

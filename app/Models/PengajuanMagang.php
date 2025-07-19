@@ -19,6 +19,14 @@ class PengajuanMagang extends Model
         'status',
         'catatan',
         'dokumen',
+        'bukti_selesai_path',
+        'tanggal_diterima',
+    ];
+
+    protected $casts = [
+        'tanggal_mulai' => 'date',
+        'tanggal_selesai' => 'date',
+        'tanggal_diterima' => 'datetime',
     ];
 
     public function user()
@@ -34,6 +42,22 @@ class PengajuanMagang extends Model
     public function setBidangMagangAttribute($value)
     {
         $this->attributes['bidang_magang'] = strip_tags($value);
+    }
+
+     // ⭐ Tambahkan relasi ke Logbook (satu pengajuan punya banyak logbook)
+    public function logbooks()
+    {
+        return $this->hasMany(Logbook::class, 'pengajuan_id');
+    }
+
+    // Model event untuk menghapus logbook terkait saat pengajuan dihapus
+    // Ini akan berfungsi jika onDelete('cascade') di migrasi tidak digunakan atau sebagai fallback
+    protected static function booted()
+    {
+        static::deleting(function ($pengajuan) {
+            // Hapus semua logbook yang terkait dengan pengajuan ini
+            $pengajuan->logbooks()->delete();
+        });
     }
 
 }
