@@ -31,7 +31,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/logbooks/{id}', [LogbookController::class, 'update']);
     Route::delete('/logbooks/{id}', [LogbookController::class, 'destroy']);
 
-    // ⭐ PERBAIKAN: Pindahkan rute delete pengajuan ke sini
+    //  RUTE Untuk mengubah status logbook (khusus admin)
+    Route::put('/logbooks/{id}/status', [LogbookController::class, 'updateStatus']);
+
     // Logika otorisasi admin/mahasiswa ada di PengajuanMagangController::destroy
     Route::delete('/pengajuan/{id}', [PengajuanMagangController::class, 'destroy']);
 
@@ -45,7 +47,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/admin/pengajuan', [AdminPengajuanController::class, 'index']);
         Route::put('/pengajuan/{id}/status', [PengajuanMagangController::class, 'updateStatus']);
         Route::put('admin/pengajuan/bulk-update-status', [AdminPengajuanController::class, 'bulkUpdateStatus']);
-        // ⭐ Hapus Route::delete('/pengajuan/{id}', ...) dari sini
+        Route::post('admin/upload-bukti-selesai', [AdminPengajuanController::class, 'uploadBuktiSelesai']);
     });
 
     // Route khusus Mahasiswa
@@ -57,6 +59,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/pengajuan', [PengajuanMagangController::class, 'index']);
         Route::get('/pengajuan/{id}', [PengajuanMagangController::class, 'show']);
         Route::post('/pengajuan', [PengajuanMagangController::class, 'store']);
-        // ⭐ Hapus Route::delete('/pengajuan/{id}', ...) dari sini
+        Route::get('/pengajuan/{id}/download-bukti-selesai', [PengajuanMagangController::class, 'downloadBuktiSelesai']);
     });
 });

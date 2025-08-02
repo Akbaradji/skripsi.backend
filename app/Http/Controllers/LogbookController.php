@@ -4,9 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Models\Logbook;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth; // Untuk mendapatkan user yang sedang login
-use Illuminate\Support\Carbon; // Untuk bekerja dengan tanggal
-use App\Models\PengajuanMagang; // ⭐ Impor model PengajuanMagang
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Carbon;
+use App\Models\PengajuanMagang;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\Log; // ⭐ Tambahkan import kelas Log
 
 class LogbookController extends Controller
 {
@@ -27,12 +30,10 @@ class LogbookController extends Controller
             $query->where('user_id', $user->id);
         }
 
-        // Filter berdasarkan tanggal (opsional)
         if ($request->has('date')) {
             $query->whereDate('tanggal', $request->date);
         }
 
-        // Filter berdasarkan status (opsional)
         if ($request->has('status') && in_array($request->status, ['pending', 'disetujui', 'ditolak'])) {
             $query->where('status', $request->status);
         }
@@ -57,17 +58,15 @@ class LogbookController extends Controller
         }
 
         $request->validate([
-            'tanggal' => 'required|date|before_or_equal:today', // Tanggal tidak boleh di masa depan
-            'aktivitas' => 'required|string|min:10', // Minimal 10 karakter
+            'tanggal' => 'required|date|before_or_equal:today',
+            'aktivitas' => 'required|string|min:10',
         ]);
 
-        // ⭐ PERBAIKAN: Cari pengajuan magang yang aktif dan disetujui untuk user ini
-        // Logika ini sangat penting untuk menemukan pengajuan_id yang benar
         $activePengajuan = PengajuanMagang::where('user_id', $user->id)
-                                        ->where('status', 'disetujui')
-                                        ->whereDate('tanggal_mulai', '<=', $request->tanggal)
-                                        ->whereDate('tanggal_selesai', '>=', $request->tanggal)
-                                        ->first();
+            ->where('status', 'disetujui')
+            ->whereDate('tanggal_mulai', '<=', $request->tanggal)
+            ->whereDate('tanggal_selesai', '>=', $request->tanggal)
+            ->first();
 
         if (!$activePengajuan) {
             return response()->json(['message' => 'Anda tidak memiliki pengajuan magang aktif yang disetujui untuk tanggal ini.'], 400);
@@ -75,10 +74,10 @@ class LogbookController extends Controller
 
         $logbook = Logbook::create([
             'user_id' => $user->id,
-            'pengajuan_id' => $activePengajuan->id, // ⭐ Set pengajuan_id di sini
+            'pengajuan_id' => $activePengajuan->id,
             'tanggal' => $request->tanggal,
-            'aktivitas' => strip_tags($request->aktivitas), // Sanitasi input aktivitas
-            'status' => 'pending', // Default status saat dibuat
+            'aktivitas' => strip_tags($request->aktivitas),
+            'status' => 'pending',
         ]);
 
         return response()->json(['message' => 'Logbook berhasil dibuat.', 'data' => $logbook], 201);
@@ -116,7 +115,6 @@ class LogbookController extends Controller
         $user = Auth::user();
         $logbook = Logbook::findOrFail($id);
 
-        // Validasi umum
         $request->validate([
             'aktivitas' => 'sometimes|required|string|min:10',
             'tanggal' => 'sometimes|required|date|before_or_equal:today',
@@ -125,22 +123,18 @@ class LogbookController extends Controller
         ]);
 
         if ($user->role === 'mahasiswa') {
-            // Mahasiswa hanya bisa update logbook miliknya sendiri
             if ($logbook->user_id !== $user->id) {
                 return response()->json(['message' => 'Unauthorized.'], 403);
             }
-            // Mahasiswa hanya bisa update jika statusnya masih pending
             if ($logbook->status !== 'pending') {
                 return response()->json(['message' => 'Logbook tidak bisa diubah karena sudah diproses.'], 403);
             }
 
-            // Mahasiswa hanya bisa mengubah aktivitas dan tanggal
             $logbook->tanggal = $request->input('tanggal', $logbook->tanggal);
-            $logbook->aktivitas = strip_tags($request->input('aktivitas', $logbook->aktivitas)); // Sanitasi
+            $logbook->aktivitas = strip_tags($request->input('aktivitas', $logbook->aktivitas));
         } elseif ($user->role === 'admin') {
-            // Admin bisa mengubah status dan catatan pembimbing
             $logbook->status = $request->input('status', $logbook->status);
-            $logbook->catatan_pembimbing = strip_tags($request->input('catatan_pembimbing', $logbook->catatan_pembimbing)); // Sanitasi
+            $logbook->catatan_pembimbing = strip_tags($request->input('catatan_pembimbing', $logbook->catatan_pembimbing));
         } else {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
@@ -149,6 +143,43 @@ class LogbookController extends Controller
 
         return response()->json(['message' => 'Logbook berhasil diperbarui.', 'data' => $logbook]);
     }
+    
+    // ⭐ FUNGSI BARU: Mengubah status logbook (khusus admin)
+    public function updateStatus(Request $request, $id)
+    {
+        Log::info('Logbook update status request received:', ['id' => $id, 'data' => $request->all()]);
+
+        try {
+            // Validasi permintaan
+            $request->validate([
+                'status' => 'required|in:disetujui,ditolak',
+            ]);
+
+            $user = Auth::user();
+
+            // Cek apakah user adalah admin
+            if ($user->role !== 'admin') {
+                Log::warning('Unauthorized logbook status update attempt:', ['user_id' => $user->id]);
+                return response()->json(['message' => 'Unauthorized. Hanya admin yang bisa mengubah status logbook.'], 403);
+            }
+
+            $logbook = Logbook::findOrFail($id);
+
+            // Update status logbook
+            $logbook->status = $request->input('status');
+            $logbook->save();
+
+            Log::info('Logbook status updated successfully:', ['id' => $logbook->id, 'new_status' => $logbook->status]);
+            return response()->json(['message' => 'Status logbook berhasil diperbarui.', 'data' => $logbook]);
+        } catch (ValidationException $e) {
+            Log::error('Validation failed for logbook status update:', ['errors' => $e->errors()]);
+            return response()->json(['message' => 'Validasi gagal.', 'errors' => $e->errors()], 422);
+        } catch (\Exception $e) {
+            Log::error('Error updating logbook status:', ['error' => $e->getMessage()]);
+            return response()->json(['message' => 'Gagal memperbarui status logbook.'], 500);
+        }
+    }
+
 
     /**
      * Menghapus logbook (hanya admin, atau mahasiswa jika statusnya pending).

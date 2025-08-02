@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Carbon\Carbon;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Auth;
 
 class PengajuanMagangController extends Controller
 {
@@ -38,6 +39,7 @@ class PengajuanMagangController extends Controller
      * @param  int  $id
      * @param  \Illuminate\Http\Request  $request
      * @return \Illuminate\Http\JsonResponse
+     * * ⭐ PERBAIKAN: Format respons agar menyertakan URL file
      */
     public function show($id, Request $request)
     {
@@ -49,7 +51,21 @@ class PengajuanMagangController extends Controller
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
-        return response()->json($pengajuan);
+        // Format data untuk menyertakan URL yang dapat diakses publik
+        $formattedPengajuan = [
+            'id' => $pengajuan->id,
+            'bidang_magang' => $pengajuan->bidang_magang,
+            'tanggal_mulai' => $pengajuan->tanggal_mulai,
+            'tanggal_selesai' => $pengajuan->tanggal_selesai,
+            'status' => $pengajuan->status,
+            'catatan' => $pengajuan->catatan,
+            'user' => $pengajuan->user,
+            'dokumen_url' => $pengajuan->dokumen ? url(Storage::url($pengajuan->dokumen)) : null,
+            'bukti_selesai_url' => $pengajuan->bukti_selesai_path ? url(Storage::url($pengajuan->bukti_selesai_path)) : null,
+            'tanggal_diterima' => $pengajuan->tanggal_diterima,
+        ];
+
+        return response()->json($formattedPengajuan);
     }
 
     /**
@@ -185,5 +201,26 @@ class PengajuanMagangController extends Controller
         }
 
         return response()->json(['message' => 'Unauthorized'], 403);
+    }
+
+    public function downloadBuktiSelesai($id)
+    {
+        $pengajuan = PengajuanMagang::findOrFail($id);
+
+        if (Auth::user()->id !== $pengajuan->user_id && Auth::user()->role !== 'admin') {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+        
+        if (!$pengajuan->bukti_selesai_path) {
+            return response()->json(['message' => 'Bukti selesai tidak ditemukan.'], 404);
+        }
+        
+        $filePath = storage_path('app/public/' . $pengajuan->bukti_selesai_path);
+        
+        if (!file_exists($filePath)) {
+            return response()->json(['message' => 'File tidak ditemukan di server.'], 404);
+        }
+        
+        return response()->download($filePath, basename($pengajuan->bukti_selesai_path));
     }
 }

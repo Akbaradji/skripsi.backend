@@ -14,7 +14,7 @@ class Logbook extends Model
         'tanggal',
         'aktivitas',
         'status',
-        'pengajuan_id', // ⭐ Pastikan ini ada di $fillable
+        'pengajuan_id',
     ];
 
     protected $casts = [
@@ -26,7 +26,6 @@ class Logbook extends Model
         return $this->belongsTo(User::class);
     }
 
-    // ⭐ Tambahkan relasi ke PengajuanMagang
     public function pengajuanMagang()
     {
         return $this->belongsTo(PengajuanMagang::class, 'pengajuan_id');
