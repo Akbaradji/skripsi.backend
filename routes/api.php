@@ -2,15 +2,14 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\AdminAuthController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AdminPengajuanController;
 use App\Http\Controllers\PengajuanMagangController;
 use App\Http\Controllers\LogbookController;
 
 // Login dan Logout Admin (tidak perlu middleware auth di logout, tapi lebih aman tetap pakai)
-Route::post('admin/login', [AdminAuthController::class, 'login']);
-Route::post('admin/logout', [AdminAuthController::class, 'logout'])->middleware('auth:sanctum');
+Route::post('admin/login', [AuthController::class, 'login']);
+Route::post('admin/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
 
 // Register dan Login Mahasiswa/User
 Route::post('/register', [AuthController::class, 'register']);
@@ -20,7 +19,6 @@ Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanc
 // Group route yang harus login (autentikasi via sanctum)
 Route::middleware('auth:sanctum')->group(function () {
 
-    Route::post('/logout', [AuthController::class, 'logout']); // Ini bisa dihapus jika sudah ada di luar group
     Route::get('/me', [AuthController::class, 'me']);
     Route::put('/profile', [AuthController::class, 'updateProfile']);
 
@@ -31,7 +29,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/logbooks/{id}', [LogbookController::class, 'update']);
     Route::delete('/logbooks/{id}', [LogbookController::class, 'destroy']);
 
-    //  RUTE Untuk mengubah status logbook (khusus admin)
+    // RUTE Untuk mengubah status logbook (khusus admin)
     Route::put('/logbooks/{id}/status', [LogbookController::class, 'updateStatus']);
 
     // Logika otorisasi admin/mahasiswa ada di PengajuanMagangController::destroy

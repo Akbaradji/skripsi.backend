@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-// Pastikan ini ada
 use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -23,7 +22,7 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
-        'role', // ⭐ Pastikan ini ada di $fillable jika Anda mengaturnya saat registrasi
+        'role', // ⭐ Pastikan ini ada di $fillable
     ];
 
     /**
@@ -43,6 +42,6 @@ class User extends Authenticatable
      */
     protected $casts = [
         'email_verified_at' => 'datetime',
-        'password' => 'hashed', // Laravel 10+ secara otomatis meng-hash password
+        'password' => 'hashed',
     ];
 }
